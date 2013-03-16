@@ -12,10 +12,13 @@ __license__ = "WTFPL"
 __copyright__ = "Copyright 2013, Olivier Thereaux"
 __author__ = "Olivier Thereaux <http://olivier.thereaux.net/>"
 
+import os
+import re
 import pinboard
 import time
 import hashlib
 import binascii
+import cgi
 import evernote.edam.userstore.constants as UserStoreConstants
 from evernote.edam.notestore import NoteStore
 import evernote.edam.type.ttypes as Types
@@ -28,9 +31,37 @@ def save2evernote(pinbookmark, bookmark_guid):
     attributes = Types.NoteAttributes(sourceURL = pinbookmark["href"])
     note.attributes = attributes
     note.notebookGuid = bookmark_guid
+    # test whether lynx is installed 
+    # strongly inspired by http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
+    lynx_exe = None
+    page_dump = ''
+    # alternatively could use http://www.instapaper.com/text?u=http://
+    for path in os.environ["PATH"].split(os.pathsep):
+        path = path.strip('"')
+        exe_file = os.path.join(path, "lynx")
+        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+            lynx_exe = exe_file
+    if lynx_exe:
+        lynx_cmd = lynx_exe+' -dump -display_charset=utf-8 -assume_charset=utf-8 -nomargins -hiddenlinks=ignore -nonumbers '
+        clean_href = pinbookmark["href"]
+        try: #python 3.3 and above
+            from shlex import quote
+            clean_href = quote(clean_href)
+        except: 
+            _find_unsafe = re.compile(r'[^\w@%+=:,./-]').search
+            if _find_unsafe(clean_href):
+                clean_href =  "'" + clean_href.replace("'", "'\"'\"'") + "'"
+        lynx_cmd = lynx_cmd+clean_href
+        page_dump = os.popen(lynx_cmd).read()
     note.content = '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
-<en-note>%s</en-note>''' % pinbookmark["extended"].encode("utf-8")
+<en-note>
+%s
+<hr />
+<pre>
+%s
+</pre>
+</en-note>''' % (pinbookmark["extended"].encode("utf-8"), cgi.escape(page_dump))
     note.created = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     return note_store.createNote(note)
     
@@ -59,7 +90,7 @@ if bookmark_notebook_guid == None:
     bookmark_notebook_guid = note_store.createNotebook(new_notebook).guid
 
 # retrieve all pinboard posts
-pinboard_posts =  p.posts(fromdt="2013-03-08")
+pinboard_posts =  p.posts(fromdt="2013-03-14")
     # p.posts(fromdt="") # FIXME look only for entries newer than a given timestamp
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
