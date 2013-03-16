@@ -115,8 +115,8 @@ lynx_exe = canhaslynx()
 
 # retrieve all pinboard posts
 # pinboard_posts =  p.posts(fromdt="2013-03-10") # FIXME look only for entries newer than a given timestamp
-pinboard_posts =  p.posts(todt="2012-08-06") # FIXME look only for entries newer than a given timestamp
-# pinboard_posts =  p.posts()
+# pinboard_posts =  p.posts(todt="2011-08-09") # FIXME look only for entries newer than a given timestamp
+pinboard_posts =  p.posts()
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
     existing_notes = note_store.findNotes(note_filter, 0, 1)
