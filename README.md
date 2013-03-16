@@ -6,6 +6,9 @@ Pinboard is great. Evernote too.
 
 Make love, not war, use both and keep them in sync.
 
+*Note*: the script still has a few unresolved bugs, but is mainly functional. 
+The adventurous are more than welcome to try it and help improve it.
+
 ## How it works
 
 The script will:
