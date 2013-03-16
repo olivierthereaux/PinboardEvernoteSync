@@ -8,3 +8,7 @@ pinboard_username = 'bob'
 pinboard_pass = 'mypassword'
 # Get your evernote token here: https://www.evernote.com/api/DeveloperToken.action
 evernote_token = 'S=s1:U=6154a:E=144bc355fbc:C=13d648433bd:P=1cd:A=en-devtoken:V=2:H=2d23742aaed9c17b9b2adf7bac62d64b'
+# If you have a readability parser token (get it here: http://www.readability.com/account/api)
+# we will use it to parse a nice excerpt of the page into evernote
+# if you don't have one, comment out this line and we will try to use a lynx text dump of the page instead
+readability_token = '2c63eb0esds658f6203fc78c4aaaa6b9828a59'

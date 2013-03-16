@@ -19,23 +19,23 @@ import time
 import hashlib
 import binascii
 import cgi
+import urllib
+import urllib2
+import json
 import evernote.edam.userstore.constants as UserStoreConstants
 from evernote.edam.notestore import NoteStore
 import evernote.edam.type.ttypes as Types
 from evernote.api.client import EvernoteClient
 
-def save2evernote(pinbookmark, bookmark_guid):
-    note = Types.Note()
-            # ourNote.notebookGuid = parentNotebook.guid
-    note.title = pinbookmark["description"].encode("utf-8")
-    attributes = Types.NoteAttributes(sourceURL = pinbookmark["href"])
-    note.attributes = attributes
-    note.notebookGuid = bookmark_guid
+def getsummaryfromreadability(href, readability_token):
+    readability_query = 'https://readability.com/api/content/v1/parser?url='+href+'&token='+readability_token
+    readable_text = urllib.urlopen(readability_query).read()
+    return '<p>'+json.loads(readable_text)['excerpt']+'</p>'
+    
+def getsummaryfromlynx(href):
     # test whether lynx is installed 
     # strongly inspired by http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
     lynx_exe = None
-    page_dump = ''
-    # alternatively could use http://www.instapaper.com/text?u=http://
     for path in os.environ["PATH"].split(os.pathsep):
         path = path.strip('"')
         exe_file = os.path.join(path, "lynx")
@@ -43,7 +43,7 @@ def save2evernote(pinbookmark, bookmark_guid):
             lynx_exe = exe_file
     if lynx_exe:
         lynx_cmd = lynx_exe+' -dump -display_charset=utf-8 -assume_charset=utf-8 -nomargins -hiddenlinks=ignore -nonumbers '
-        clean_href = pinbookmark["href"]
+        clean_href = href
         try: #python 3.3 and above
             from shlex import quote
             clean_href = quote(clean_href)
@@ -52,31 +52,44 @@ def save2evernote(pinbookmark, bookmark_guid):
             if _find_unsafe(clean_href):
                 clean_href =  "'" + clean_href.replace("'", "'\"'\"'") + "'"
         lynx_cmd = lynx_cmd+clean_href
-        page_dump = os.popen(lynx_cmd).read()
+        return '<pre>'+cgi.escape(os.popen(lynx_cmd).read())+'</pre>'
+    else:
+        return ''    
+
+def save2evernote(pinbookmark, bookmark_guid, readability_token):
+    note = Types.Note()
+            # ourNote.notebookGuid = parentNotebook.guid
+    note.title = pinbookmark["description"].encode("utf-8")
+    attributes = Types.NoteAttributes(sourceURL = pinbookmark["href"])
+    note.attributes = attributes
+    note.notebookGuid = bookmark_guid
+    page_dump = ''
+    if readability_token != None:
+        page_dump = getsummaryfromreadability(pinbookmark["href"], readability_token)
+    else:
+        page_dump = getsummaryfromlynx(pinbookmark["href"])
     note.content = '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
 <en-note>
 %s
 <hr />
-<pre>
 %s
-</pre>
-</en-note>''' % (pinbookmark["extended"].encode("utf-8"), cgi.escape(page_dump))
+</en-note>''' % (pinbookmark["extended"].encode("utf-8"), page_dump)
     note.created = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     return note_store.createNote(note)
     
-# initialise clients with both tokens
-# try:
+# initialise clients with tokens
+pinboard_username = None
+pinboard_pass = None
+evernote_token = None
+readability_token = None
+
 from conf import *
 client = EvernoteClient(token=evernote_token, sandbox=False)
 user_store = client.get_user_store()
 # p = pinboard.open(token=pinboard_token) # FIXME
 p = pinboard.open(pinboard_username, pinboard_pass)
 note_store = client.get_note_store()
-# except:
-#     print "Please fill in your evernote and pinboard developer tokens"
-#     print "See conf_sample.py for instructions"
-#     exit(1)
 
 # look for notebook "Bookmarks". If there is none, create it
 notebooks = note_store.listNotebooks()
@@ -90,7 +103,7 @@ if bookmark_notebook_guid == None:
     bookmark_notebook_guid = note_store.createNotebook(new_notebook).guid
 
 # retrieve all pinboard posts
-# pinboard_posts =  p.posts(fromdt="2013-03-14") # FIXME look only for entries newer than a given timestamp
+# pinboard_posts =  p.posts(fromdt="2013-03-01") # FIXME look only for entries newer than a given timestamp
 pinboard_posts =  p.posts()
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
@@ -100,8 +113,7 @@ for post in pinboard_posts:
             pass        
     else:
         try:
-            created_note = save2evernote(post, bookmark_notebook_guid)
+            created_note = save2evernote(post, bookmark_notebook_guid, readability_token=readability_token)
             print "Successfully created a new note with GUID: ", created_note.guid, " for bookmark: ", post['href']
         except Exception,e:
             print "Could not create a note for: ", post['href'], e
-            print post["description"].encode("utf-8")
