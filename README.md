@@ -11,11 +11,8 @@ Make love, not war, use both and keep them in sync.
 The script will:
 
 1. retrieve all your bookmarks from pinboard 
-  * TODO - use a timestamp to not have to process every single bookmark ever time
 2. if there is no entry in Evernote (in any notebook) with the same URL, create one in the notebook "Bookmarks"
   * The notebook will be created if you don't have it yet
-  * TODO - an option to choose the notebook rather than the "Bookmarks" default
-3. TODO - If there are notes in your evernote "Bookmarks" notebook which are not in your Pinboard account, add an entry there
 
 
 ## How to use it
@@ -31,4 +28,7 @@ The script will:
 
 ## TODO
 
-* keep a timestamp of the last sync to avoid processing ALL entries each time
+* Reverse sync: If there are notes in your evernote "Bookmarks" notebook which are not in your Pinboard account, add an entry there
+* Keep a timestamp of the last sync to avoid processing ALL entries each time
+* Add an option to choose the notebook rather than the "Bookmarks" default
+* Help lynx with HTTPS content
