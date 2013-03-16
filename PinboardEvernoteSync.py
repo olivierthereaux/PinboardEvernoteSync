@@ -68,7 +68,7 @@ def save2evernote(pinbookmark, bookmark_guid):
 # initialise clients with both tokens
 # try:
 from conf import *
-client = EvernoteClient(token=evernote_token, sandbox=True)
+client = EvernoteClient(token=evernote_token, sandbox=False)
 user_store = client.get_user_store()
 # p = pinboard.open(token=pinboard_token) # FIXME
 p = pinboard.open(pinboard_username, pinboard_pass)
@@ -90,8 +90,8 @@ if bookmark_notebook_guid == None:
     bookmark_notebook_guid = note_store.createNotebook(new_notebook).guid
 
 # retrieve all pinboard posts
-pinboard_posts =  p.posts(fromdt="2013-03-14")
-    # p.posts(fromdt="") # FIXME look only for entries newer than a given timestamp
+# pinboard_posts =  p.posts(fromdt="2013-03-14") # FIXME look only for entries newer than a given timestamp
+pinboard_posts =  p.posts()
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
     existing_notes = note_store.findNotes(note_filter, 0, 1)
