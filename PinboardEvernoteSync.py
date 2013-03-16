@@ -119,7 +119,13 @@ lynx_exe = canhaslynx()
 pinboard_posts =  p.posts()
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
-    existing_notes = note_store.findNotes(note_filter, 0, 1)
+    try:
+        existing_notes = note_store.findNotes(note_filter, 0, 1)
+    except socket.error:
+        print "Evernote server timeout, waiting to re-try"
+        time.sleep(5)
+        existing_notes = note_store.findNotes(note_filter, 0, 1)
+        # if this bombs again, let it crash. for now.
     if len(existing_notes.notes) > 0:
             print "Skipping post: ", post["href"], " already in Evernote"
             pass        
@@ -129,3 +135,4 @@ for post in pinboard_posts:
             print "Successfully created a new note with GUID: ", created_note.guid, " for bookmark: ", post['href']
         except Exception,e:
             print "Could not create a note for: ", post['href'], e
+            pass
