@@ -27,7 +27,7 @@ The script will:
 5. install https://github.com/mgan59/python-pinboard
 6. [Optional] install lynx, if you want a nice text dump of the pages in your bookmark note
 7. Run PinboardEvernoteSync.py whenever you feel like syncing your accounts
-8. goto 6
+8. goto 7
 
 ## TODO
 
