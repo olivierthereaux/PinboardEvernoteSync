@@ -13,6 +13,8 @@ The script will:
 1. retrieve all your bookmarks from pinboard 
 2. if there is no entry in Evernote (in any notebook) with the same URL, create one in the notebook "Bookmarks"
   * The notebook will be created if you don't have it yet
+  * If you have lynx installed, the script will save a text dump of the page into Evernote
+  * If you don't have lynx or if it doesn't work, the script will use the Readability API to get a page excerpt
 
 
 ## How to use it
@@ -31,4 +33,3 @@ The script will:
 * Reverse sync: If there are notes in your evernote "Bookmarks" notebook which are not in your Pinboard account, add an entry there
 * Keep a timestamp of the last sync to avoid processing ALL entries each time
 * Add an option to choose the notebook rather than the "Bookmarks" default
-* Help lynx with HTTPS content
