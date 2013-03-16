@@ -42,7 +42,7 @@ def canhaslynx():
 def getsummaryfromreadability(href, readability_token):
     readability_query = 'https://readability.com/api/content/v1/parser?url='+href+'&token='+readability_token
     readable_text = urllib.urlopen(readability_query).read()
-    return '<p>'+json.loads(readable_text)['excerpt']+'</p>'
+    return '<p>'+json.loads(readable_text)['excerpt'].encode("utf-8")+'</p>'
     
 def getsummaryfromlynx(lynx_exe, href):
     clean_href = href
@@ -115,7 +115,8 @@ lynx_exe = canhaslynx()
 
 # retrieve all pinboard posts
 # pinboard_posts =  p.posts(fromdt="2013-03-10") # FIXME look only for entries newer than a given timestamp
-pinboard_posts =  p.posts()
+pinboard_posts =  p.posts(todt="2012-08-06") # FIXME look only for entries newer than a given timestamp
+# pinboard_posts =  p.posts()
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
     existing_notes = note_store.findNotes(note_filter, 0, 1)
