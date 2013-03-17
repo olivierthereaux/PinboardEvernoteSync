@@ -30,6 +30,7 @@ The script will:
 
 ## TODO
 
+* Sync tags between Pinboard and Evernote
 * Reverse sync: If there are notes in your evernote "Bookmarks" notebook which are not in your Pinboard account, add an entry there
 * Keep a timestamp of the last sync to avoid processing ALL entries each time
 * Add an option to choose the notebook rather than the "Bookmarks" default
