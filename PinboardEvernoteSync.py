@@ -13,6 +13,7 @@ __copyright__ = "Copyright 2013, Olivier Thereaux"
 __author__ = "Olivier Thereaux <http://olivier.thereaux.net/>"
 
 import os
+import socket
 import subprocess
 import re
 import pinboard
