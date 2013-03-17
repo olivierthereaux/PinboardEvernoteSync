@@ -85,6 +85,7 @@ def save2evernote(pinbookmark, bookmark_guid, lynx_exe, readability_token):
 %s
 </en-note>''' % (pinbookmark["extended"].encode("utf-8"), page_dump)
     note.created = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
+    note.updated = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     return note_store.createNote(note)
     
 # initialise clients with tokens
@@ -118,6 +119,7 @@ lynx_exe = canhaslynx()
 # pinboard_posts =  p.posts(fromdt="2013-03-10") # FIXME look only for entries newer than a given timestamp
 # pinboard_posts =  p.posts(todt="2011-08-09") # FIXME look only for entries newer than a given timestamp
 pinboard_posts =  p.posts()
+pinboard_posts.reverse()
 for post in pinboard_posts:
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
     try:
