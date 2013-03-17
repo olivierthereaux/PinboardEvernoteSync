@@ -44,7 +44,7 @@ def getsummaryfromreadability(href, readability_token):
     readability_query = 'https://readability.com/api/content/v1/parser?url='+href+'&token='+readability_token
     readable_text = urllib.urlopen(readability_query).read()
     try:
-        return '<p>'+json.loads(readable_text)['excerpt'].encode("utf-8")+'</p>'
+        return '<p>'+cgi.escape(json.loads(readable_text)['excerpt']).encode("utf-8")+'</p>'
     except:
         return ''
         
