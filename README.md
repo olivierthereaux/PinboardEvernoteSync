@@ -6,9 +6,6 @@ Pinboard is great. Evernote too.
 
 Make love, not war, use both and keep them in sync.
 
-*Note*: the script still has a few unresolved bugs, but is mainly functional. 
-The adventurous are more than welcome to try it and help improve it.
-
 ## How it works
 
 The script will:
@@ -24,7 +21,7 @@ The script will:
 
 1. Get your pinboard API Token here: https://pinboard.in/settings/password
 2. Get an Evernote developer token at: https://www.evernote.com/api/DeveloperToken.action
-3. Create a conf.py file with the two tokens. The file conf_sample.py will show you how
+3. Create a conf.py file with your credentials (tokens or passwords). The file conf_sample.py will show you how
 4. install https://github.com/evernote/evernote-sdk-python
 5. install https://github.com/mgan59/python-pinboard
 6. [Optional] install lynx, if you want a nice text dump of the pages in your bookmark note
