@@ -43,8 +43,11 @@ def canhaslynx():
 def getsummaryfromreadability(href, readability_token):
     readability_query = 'https://readability.com/api/content/v1/parser?url='+href+'&token='+readability_token
     readable_text = urllib.urlopen(readability_query).read()
-    return '<p>'+json.loads(readable_text)['excerpt'].encode("utf-8")+'</p>'
-    
+    try:
+        return '<p>'+json.loads(readable_text)['excerpt'].encode("utf-8")+'</p>'
+    except:
+        return ''
+        
 def getsummaryfromlynx(lynx_exe, href):
     clean_href = href
     try: #python 3.3 and above
