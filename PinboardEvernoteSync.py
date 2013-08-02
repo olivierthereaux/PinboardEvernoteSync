@@ -109,26 +109,30 @@ def save2evernote(pinbookmark, bookmark_guid, lynx_exe, readability_token):
             page_dump = getsummaryfromreadability(pinbookmark["href"], readability_token)
     resource_embed = ""
     if phantom_exe:
-        savescreenshotfromphantom(phantom_exe, post['href'])
+        savescreenshotfromphantom(phantom_exe, post['href'])    
+        try:
+            image = open('screenshot.png', 'rb').read()
+        except:
+            image = None
+        if image:
+            md5 = hashlib.md5()
+            md5.update(image)
+            hash = md5.digest()
     
-        image = open('screenshot.png', 'rb').read()
-        md5 = hashlib.md5()
-        md5.update(image)
-        hash = md5.digest()
+            data = Types.Data()
+            data.size = len(image)
+            data.bodyHash = hash
+            data.body = image
     
-        data = Types.Data()
-        data.size = len(image)
-        data.bodyHash = hash
-        data.body = image
-    
-        resource = Types.Resource()
-        resource.mime = 'image/png'
-        resource.data = data
-        note.resources = [resource]
-        hash_hex = binascii.hexlify(hash)
-        resource_embed = '<en-media type="image/png" hash="' + hash_hex + '"/>'
+            resource = Types.Resource()
+            resource.mime = 'image/png'
+            resource.data = data
+            note.resources = [resource]
+            hash_hex = binascii.hexlify(hash)
+            resource_embed = '<en-media type="image/png" hash="' + hash_hex + '"/>'
 
     if resource_embed != "":
+        os.remove('screenshot.png')
         resource_embed += """
 <hr/>
 """
