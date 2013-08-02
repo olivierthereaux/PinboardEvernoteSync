@@ -132,7 +132,6 @@ def save2evernote(pinbookmark, bookmark_guid, lynx_exe, readability_token):
         resource_embed += """
 <hr/>
 """
-        print resource_embed
     note.content = '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
 <en-note>
@@ -144,7 +143,6 @@ def save2evernote(pinbookmark, bookmark_guid, lynx_exe, readability_token):
     note.created = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     note.updated = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     return note_store.createNote(note)
-    time.sleep(5)
     
 # initialise clients with tokens
 pinboard_username = None
