@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """PinboardEvernoteSync.py
 
 Pinboard is great. Evernote too. 
@@ -24,6 +26,8 @@ import cgi
 import urllib
 import urllib2
 import json
+import hashlib
+import binascii
 import evernote.edam.userstore.constants as UserStoreConstants
 from evernote.edam.notestore import NoteStore
 import evernote.edam.type.ttypes as Types
@@ -40,6 +44,36 @@ def canhaslynx():
             lynx_exe = exe_file
     return lynx_exe
 
+def canhasphantom():
+    # test whether phantomJS is installed 
+    phantom_exe = None
+    for path in os.environ["PATH"].split(os.pathsep):
+        path = path.strip('"')
+        exe_file = os.path.join(path, "phantomjs")
+        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+            phantom_exe = exe_file
+    return phantom_exe
+
+def clean_href(href):
+    clean_href = href
+    try: #python 3.3 and above
+        from shlex import quote
+        clean_href = quote(clean_href)
+    except: 
+        _find_unsafe = re.compile(r'[^\w@%+=:,./-]').search
+        if _find_unsafe(clean_href):
+            clean_href =  "'" + clean_href.replace("'", "'\"'\"'") + "'"
+    return clean_href
+
+def savescreenshotfromphantom(phantom_exe, href):
+    href = clean_href(href)
+    phantom_args = [phantom_exe, "phantom/rasterize.js", href, "screenshot.png"]
+    try:
+        subprocess.check_output(phantom_args, stderr=open('exceptions.txt', 'w'))
+    except:
+        pass
+    return None
+
 def getsummaryfromreadability(href, readability_token):
     readability_query = 'https://readability.com/api/content/v1/parser?url='+href+'&token='+readability_token
     readable_text = urllib.urlopen(readability_query).read()
@@ -49,15 +83,8 @@ def getsummaryfromreadability(href, readability_token):
         return ''
         
 def getsummaryfromlynx(lynx_exe, href):
-    clean_href = href
-    try: #python 3.3 and above
-        from shlex import quote
-        clean_href = quote(clean_href)
-    except: 
-        _find_unsafe = re.compile(r'[^\w@%+=:,./-]').search
-        if _find_unsafe(clean_href):
-            clean_href =  "'" + clean_href.replace("'", "'\"'\"'") + "'"
-    lynx_args = [lynx_exe,'-dump','-display_charset=utf-8','-assume_charset=utf-8','-nomargins','-hiddenlinks=ignore','-nonumbers',clean_href]
+    href = clean_href(href)
+    lynx_args = [lynx_exe,'-dump','-display_charset=utf-8','-assume_charset=utf-8','-nomargins','-hiddenlinks=ignore','-nonumbers',href]
     try:
         lynx_dump = cgi.escape(subprocess.check_output(lynx_args, stderr=open('/dev/null', 'w')))
         return '<pre>'+lynx_dump+'</pre>'
@@ -74,22 +101,50 @@ def save2evernote(pinbookmark, bookmark_guid, lynx_exe, readability_token):
     page_dump = ''
     if lynx_exe:
         # print "Can Has Lynx"
-        page_dump = getsummaryfromlynx(lynx_exe, pinbookmark["href"])
+        page_dump = getsummaryfromlynx(lynx_exe, pinbookmark["href"])        
     if page_dump == "": #lynx failed, or no present. Try readability
         # print "Lynx no worky"
         if readability_token != None:
             # print "Using Readability instead"
             page_dump = getsummaryfromreadability(pinbookmark["href"], readability_token)
+    resource_embed = ""
+    if phantom_exe:
+        savescreenshotfromphantom(phantom_exe, post['href'])
+    
+        image = open('screenshot.png', 'rb').read()
+        md5 = hashlib.md5()
+        md5.update(image)
+        hash = md5.digest()
+    
+        data = Types.Data()
+        data.size = len(image)
+        data.bodyHash = hash
+        data.body = image
+    
+        resource = Types.Resource()
+        resource.mime = 'image/png'
+        resource.data = data
+        note.resources = [resource]
+        hash_hex = binascii.hexlify(hash)
+        resource_embed = '<en-media type="image/png" hash="' + hash_hex + '"/>'
+
+    if resource_embed != "":
+        resource_embed += """
+<hr/>
+"""
+        print resource_embed
     note.content = '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
 <en-note>
 %s
 <hr />
 %s
-</en-note>''' % (pinbookmark["extended"].encode("utf-8"), page_dump)
+%s
+</en-note>''' % (pinbookmark["extended"].encode("utf-8"), resource_embed, page_dump)
     note.created = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     note.updated = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     return note_store.createNote(note)
+    time.sleep(5)
     
 # initialise clients with tokens
 pinboard_username = None
@@ -101,6 +156,7 @@ from conf import *
 client = EvernoteClient(token=evernote_token, sandbox=False)
 user_store = client.get_user_store()
 # p = pinboard.open(token=pinboard_token) # FIXME
+print "connecting to Pinboard…"
 p = pinboard.open(pinboard_username, pinboard_pass)
 note_store = client.get_note_store()
 
@@ -118,12 +174,19 @@ if bookmark_notebook_guid == None:
 #Is Lynx installed?
 lynx_exe = canhaslynx()
 
+#Is phantomJS installed?
+phantom_exe = canhasphantom()
+
 # retrieve all pinboard posts
-# pinboard_posts =  p.posts(fromdt="2013-03-10") # FIXME look only for entries newer than a given timestamp
-# pinboard_posts =  p.posts(todt="2011-08-09") # FIXME look only for entries newer than a given timestamp
+# pinboard_posts =  p.posts(fromdt=latest_timestamp) # FIXME look only for entries newer than a given timestamp
 pinboard_posts =  p.posts()
 pinboard_posts.reverse()
+
+print "Processing ", len(pinboard_posts), " bookmarks"
+
 for post in pinboard_posts:
+    print post['href']
+        
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
     try:
         existing_notes = note_store.findNotes(note_filter, 0, 1)
@@ -142,3 +205,4 @@ for post in pinboard_posts:
         except Exception,e:
             print "Could not create a note for: ", post['href'], e
             pass
+    

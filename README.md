@@ -25,8 +25,10 @@ The script will:
 4. install https://github.com/evernote/evernote-sdk-python
 5. install https://github.com/mgan59/python-pinboard
 6. [Optional] install lynx, if you want a nice text dump of the pages in your bookmark note
-7. Run PinboardEvernoteSync.py whenever you feel like syncing your accounts
-8. goto 7
+7. [Optional] get a Readability parser key if you want to use it instead of lynx
+8. [Optional] install phantomJS from http://phantomjs.org/ if you want to keep a screenshot of each bookmarked site in evernote
+9. Run PinboardEvernoteSync.py whenever you feel like syncing your accounts
+10. goto 9
 
 ## TODO
 
