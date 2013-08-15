@@ -31,6 +31,7 @@ import binascii
 import evernote.edam.userstore.constants as UserStoreConstants
 from evernote.edam.notestore import NoteStore
 import evernote.edam.type.ttypes as Types
+import evernote.edam.error.ttypes as Errors
 from evernote.api.client import EvernoteClient
 
 def canhaslynx():
@@ -160,7 +161,14 @@ user_store = client.get_user_store()
 # p = pinboard.open(token=pinboard_token) # FIXME
 print "connecting to Pinboard…"
 p = pinboard.open(pinboard_username, pinboard_pass)
-note_store = client.get_note_store()
+try:
+    note_store = client.get_note_store()
+except Errors.EDAMSystemException, e:
+    if e.errorCode == 19: # rate limit reached
+        print "Rate limit reached"
+        print "Retry your request in %d seconds" % e.rateLimitDuration
+        time.sleep(e.rateLimitDuration+1)
+        note_store = client.get_note_store()
 
 # look for notebook "Bookmarks". If there is none, create it
 notebooks = note_store.listNotebooks()
@@ -184,10 +192,13 @@ phantom_exe = canhasphantom()
 pinboard_posts =  p.posts()
 pinboard_posts.reverse()
 
-print "Processing ", len(pinboard_posts), " bookmarks"
+post_counter = 1
+post_counter_total = len(pinboard_posts)
+print "Processing ", post_counter_total, " bookmarks"
+print
 
 for post in pinboard_posts:
-    print post['href']
+    print post_counter, "/", post_counter_total, ": ", post['href']
         
     note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
     try:
@@ -196,15 +207,24 @@ for post in pinboard_posts:
         print "Evernote server timeout, waiting to re-try"
         time.sleep(5)
         existing_notes = note_store.findNotes(note_filter, 0, 1)
+    except Errors.EDAMSystemException, e:
+        if e.errorCode == 19: # limit rate reached
+            print "Rate limit reached"
+            print "Retry your request in %d seconds" % e.rateLimitDuration
+            time.sleep(e.rateLimitDuration+1)
+            existing_notes = note_store.findNotes(note_filter, 0, 1)
+        
         # if this bombs again, let it crash. for now.
     if len(existing_notes.notes) > 0:
-            print "Skipping post: ", post["href"], " already in Evernote"
+            print "Skipping post:  already in Evernote"
             pass        
     else:
         try:
             created_note = save2evernote(post, bookmark_notebook_guid, lynx_exe=lynx_exe, readability_token=readability_token)
-            print "Successfully created a new note with GUID: ", created_note.guid, " for bookmark: ", post['href']
+            print "Successfully created a new note with GUID: ", created_note.guid
         except Exception,e:
-            print "Could not create a note for: ", post['href'], e
+            print "Could not create a note. Error was: ", e
             pass
+    post_counter += 1
+    print 
     
