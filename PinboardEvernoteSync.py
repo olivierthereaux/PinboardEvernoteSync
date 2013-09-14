@@ -21,6 +21,7 @@ import re
 import sys
 import pinboard
 import time
+from datetime import datetime, date
 import hashlib
 import binascii
 import cgi
@@ -199,8 +200,9 @@ def main():
     print "Retrieving all Evernote bookmarks…"
     filter = NoteStore.NoteFilter(notebookGuid = bookmark_notebook_guid)
     spec = NoteStore.NotesMetadataResultSpec()
-    spec.includeTitle = False
+    spec.includeTitle = True
     spec.includeAttributes = True
+    spec.includeCreated = True
     note_offset = 0
     keep_looking = True
     all_evernote_bookmarks = list()
@@ -241,58 +243,61 @@ def main():
     # now we compare and prep the sync
     missing_from_evernote = list()
     missing_from_pinboard = list()
-    
     for evernote_uri in all_evernote_uris:
         if evernote_uri not in all_pinboard_uris:
             missing_from_pinboard.append(evernote_uri)
     for pinboard_uri in all_pinboard_uris:
         if pinboard_uri not in all_evernote_uris:
             missing_from_evernote.append(pinboard_uri)
-
-    print "Processing %d bookmarks missing from Evernote…" % len(missing_from_evernote)
-
     
-    post_counter = 1
-    post_counter_total = len(missing_from_evernote)
-    for pinboard_uri in missing_from_evernote:
-        post = all_pinboard_posts_map[pinboard_uri]
-        print post_counter, "/", post_counter_total, ": ", post['href']
+    if len(missing_from_pinboard):
+        print "Processing %d bookmarks missing from Pinboard:" % len(missing_from_pinboard)
+        post_counter = 1
+        post_counter_total = len(missing_from_pinboard)
+        for evernote_uri in missing_from_pinboard:
+            note = all_evernote_bookmarks_map[evernote_uri]
+            print post_counter, "/", post_counter_total, ": ", evernote_uri
         
-        # note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
-        # try:
-        #     existing_notes = note_store.findNotes(note_filter, 0, 1)
-        # except socket.error:
-        #     print "Evernote server timeout, waiting to re-try"
-        #     time.sleep(5)
-        #     existing_notes = note_store.findNotes(note_filter, 0, 1)
-        # except Errors.EDAMSystemException, e:
-        #     if e.errorCode == 19: # limit rate reached
-        #         print "Rate limit reached"
-        #         print "Retry your request in %d seconds" % e.rateLimitDuration
-        #         time.sleep(e.rateLimitDuration+1)
-        #         existing_notes = note_store.findNotes(note_filter, 0, 1)
-        # 
-        #     # if this bombs again, let it crash. for now.
-        # if len(existing_notes.notes) > 0:
-        #         print "Skipping post:  already in Evernote"
-        #         pass        
-        # else:
-        #     try:
-        #         created_note = save2evernote(post, note_store, bookmark_notebook_guid, lynx_exe=lynx_exe, phantom_exe=phantom_exe, readability_token=readability_token)
-        #         print "Successfully created a new note with GUID: ", created_note.guid
-        #     except Exception,e:
-        #         print "Could not create a note. Error was: ", e
-        #         pass
-        post_counter += 1
+            # remember? p is our pinboard API object
+            p.add(url=evernote_uri, description=note.title, date = datetime.fromtimestamp(note.created/1000))
+            time.sleep(1)
+            post_counter += 1
+        print
 
-    print
-    print "Processing %d bookmarks missing from Pinboard:" % len(missing_from_pinboard)
-    post_counter = 1
-    post_counter_total = len(missing_from_pinboard)
-    for evernote_uri in missing_from_pinboard:
-        note = all_evernote_bookmarks_map[evernote_uri]
-        print post_counter, "/", post_counter_total, ": ", evernote_uri
-        post_counter += 1
+    if len(missing_from_evernote):
+        print "Processing %d bookmarks missing from Evernote…" % len(missing_from_evernote)    
+        post_counter = 1
+        post_counter_total = len(missing_from_evernote)
+        for pinboard_uri in missing_from_evernote:
+            post = all_pinboard_posts_map[pinboard_uri]
+            print post_counter, "/", post_counter_total, ": ", post['href']
+        
+            note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
+            try:
+                existing_notes = note_store.findNotes(note_filter, 0, 1)
+            except socket.error:
+                print "Evernote server timeout, waiting to re-try"
+                time.sleep(5)
+                existing_notes = note_store.findNotes(note_filter, 0, 1)
+            except Errors.EDAMSystemException, e:
+                if e.errorCode == 19: # limit rate reached
+                    print "Rate limit reached"
+                    print "Retry your request in %d seconds" % e.rateLimitDuration
+                    time.sleep(e.rateLimitDuration+1)
+                    existing_notes = note_store.findNotes(note_filter, 0, 1)
+                # if this bombs again, let it crash. for now.
+            if len(existing_notes.notes) > 0:
+                    print "Skipping post:  already in Evernote"
+                    pass        
+            else:
+                try:
+                    created_note = save2evernote(post, note_store, bookmark_notebook_guid, lynx_exe=lynx_exe, phantom_exe=phantom_exe, readability_token=readability_token)
+                    print "Successfully created a new note with GUID: ", created_note.guid
+                except Exception,e:
+                    print "Could not create a note. Error was: ", e
+                    pass
+            post_counter += 1
+        print
     
 
 if __name__ == "__main__":

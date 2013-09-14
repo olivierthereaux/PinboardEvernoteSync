@@ -2,9 +2,7 @@
 
 ## What is it?
 
-Copy and sync all your Pinboard bookmarks into Evernote.
-
-This script will use a number of helpers (lynx, phantomJS) if they are available to keep a copy of the text and/or a screenshot of the page bookmarked into your Evernote note.
+Sync Pinboard and Evernote bookmarks.
 
 ## How it works
 
@@ -13,9 +11,10 @@ The script will:
 1. retrieve all your bookmarks from pinboard 
 2. if there is no entry in Evernote (in any notebook) with the same URL, create one in the notebook "Bookmarks"
   * The notebook will be created if you don't have it yet
+3. Add all your pinboard bookmarks into evernote 
   * If you have lynx installed, the script will save a text dump of the page into Evernote
-  * If you don't have lynx or if it doesn't work, the script will use the Readability API to get a page excerpt
-
+  * If you have phantom.JS installed, the script will also save a screenshot of the page into Evernote
+4. Add all your evernote bookmarks into Pinboard 
 
 ## How to use it
 
@@ -33,6 +32,4 @@ The script will:
 ## TODO
 
 * Sync tags
-* Reverse sync: If there are notes in your evernote "Bookmarks" notebook which are not in your Pinboard account, add an entry there
-* Keep a timestamp of the last sync to avoid processing ALL entries each time
-* Add an option to choose the notebook rather than the "Bookmarks" default
+* Add an option to choose the Evernote notebook. Currently only uses the "Bookmarks" default
