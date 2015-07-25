@@ -3,7 +3,7 @@
 
 """PinboardEvernoteSync.py
 
-Pinboard is great. Evernote too. 
+Pinboard is great. Evernote too.
 
 Make love, not war, use both and keep them in sync.
 
@@ -11,7 +11,7 @@ Make love, not war, use both and keep them in sync.
 
 __version__ = "1.0"
 __license__ = "WTFPL"
-__copyright__ = "Copyright 2013, Olivier Thereaux"
+__copyright__ = "Copyright 2013-2015, Olivier Thereaux"
 __author__ = "Olivier Thereaux <http://olivier.thereaux.net/>"
 
 import os
@@ -31,6 +31,7 @@ import json
 import hashlib
 import binascii
 import evernote.edam.userstore.constants as UserStoreConstants
+import evernote.edam.limits.constants as EvernoteLimits
 from evernote.edam.notestore import NoteStore
 import evernote.edam.type.ttypes as Types
 import evernote.edam.error.ttypes as Errors
@@ -50,7 +51,7 @@ class Usage(Exception):
 
 
 def canhaslynx():
-    # test whether lynx is installed 
+    # test whether lynx is installed
     # strongly inspired by http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
     lynx_exe = None
     for path in os.environ["PATH"].split(os.pathsep):
@@ -61,7 +62,7 @@ def canhaslynx():
     return lynx_exe
 
 def canhasphantom():
-    # test whether phantomJS is installed 
+    # test whether phantomJS is installed
     phantom_exe = None
     for path in os.environ["PATH"].split(os.pathsep):
         path = path.strip('"')
@@ -75,7 +76,7 @@ def clean_href(href):
     try: #python 3.3 and above
         from shlex import quote
         clean_href = quote(clean_href)
-    except: 
+    except:
         _find_unsafe = re.compile(r'[^\w@%+=:,./-]').search
         if _find_unsafe(clean_href):
             clean_href =  "'" + clean_href.replace("'", "'\"'\"'") + "'"
@@ -97,7 +98,7 @@ def getsummaryfromreadability(href, readability_token):
         return '<p>'+cgi.escape(json.loads(readable_text)['excerpt']).encode("utf-8")+'</p>'
     except:
         return ''
-        
+
 def getsummaryfromlynx(lynx_exe, href):
     href = clean_href(href)
     lynx_args = [lynx_exe,'-dump','-display_charset=utf-8','-assume_charset=utf-8','-nomargins','-hiddenlinks=ignore','-nonumbers',href]
@@ -110,14 +111,27 @@ def getsummaryfromlynx(lynx_exe, href):
 def save2evernote(pinbookmark, note_store, bookmark_guid, lynx_exe, phantom_exe, readability_token):
     note = Types.Note()
             # ourNote.notebookGuid = parentNotebook.guid
-    note.title = pinbookmark["description"].encode("utf-8")
+    cleantitle = cgi.escape(pinbookmark["description"])
+    # According to https://dev.evernote.com/doc/reference/Types.html#Struct_Note
+    # The subject of the note. Can't begin or end with a space. Doing some zealous replacement which seems to work
+    cleantitle = cleantitle.replace(u"\xa0", u" ").encode("utf-8")
+    cleantitle = re.sub(r"\s+", " ", cleantitle)
+    cleantitle = re.sub(r"\t+", " ", cleantitle)
+    cleantitle = re.sub(r"\s*$", "", cleantitle)
+    cleantitle = re.sub(r"^\s*", "", cleantitle)
+    # as per https://dev.evernote.com/doc/reference/Limits.html
+    re.sub(r"[^\p{Cc}\p{Z}]([^\p{Cc}\p{Zl}\p{Zp}]{0,253}[^\p{Cc}\p{Z}])?$", "", cleantitle)
+    if len(cleantitle) >= EvernoteLimits.EDAM_NOTE_TITLE_LEN_MAX:
+        cleantitle = cleantitle[:250]+"..."
+    print "Note title: %s" % cleantitle
+    note.title = cleantitle
     attributes = Types.NoteAttributes(sourceURL = pinbookmark["href"])
     note.attributes = attributes
     note.notebookGuid = bookmark_guid
     page_dump = ''
     if lynx_exe:
         # print "Can Has Lynx"
-        page_dump = getsummaryfromlynx(lynx_exe, pinbookmark["href"])        
+        page_dump = getsummaryfromlynx(lynx_exe, pinbookmark["href"])
     if page_dump == "": #lynx failed, or no present. Try readability
         # print "Lynx no worky"
         if readability_token != None:
@@ -125,7 +139,7 @@ def save2evernote(pinbookmark, note_store, bookmark_guid, lynx_exe, phantom_exe,
             page_dump = getsummaryfromreadability(pinbookmark["href"], readability_token)
     resource_embed = ""
     if phantom_exe:
-        savescreenshotfromphantom(phantom_exe, pinbookmark['href'])    
+        savescreenshotfromphantom(phantom_exe, pinbookmark['href'])
         try:
             image = open('screenshot.png', 'rb').read()
         except:
@@ -134,12 +148,12 @@ def save2evernote(pinbookmark, note_store, bookmark_guid, lynx_exe, phantom_exe,
             md5 = hashlib.md5()
             md5.update(image)
             hash = md5.digest()
-    
+
             data = Types.Data()
             data.size = len(image)
             data.bodyHash = hash
             data.body = image
-    
+
             resource = Types.Resource()
             resource.mime = 'image/png'
             resource.data = data
@@ -159,7 +173,7 @@ def save2evernote(pinbookmark, note_store, bookmark_guid, lynx_exe, phantom_exe,
 <hr />
 %s
 %s
-</en-note>''' % (pinbookmark["extended"].encode("utf-8"), resource_embed, page_dump)
+</en-note>''' % (cgi.escape(pinbookmark["extended"]).encode("utf-8"), resource_embed, page_dump)
     note.created = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     note.updated = 1000*int(time.mktime(pinbookmark[u'time_parsed']))
     return note_store.createNote(note)
@@ -168,9 +182,19 @@ def save2evernote(pinbookmark, note_store, bookmark_guid, lynx_exe, phantom_exe,
 def main():
     # Checking if we have Lynx / phantomJS for optional features
     #Is Lynx installed?
+    print "Can we use lynx to extract text?"
     lynx_exe = canhaslynx()
+    if lynx_exe:
+        print "yes"
+    else:
+        print "no"
     #Is phantomJS installed?
+    print "Can we use phantomJS to extract screenshots?"
     phantom_exe = canhasphantom()
+    if phantom_exe:
+        print "yes"
+    else:
+        print "no"
 
     print "connecting to Evernote…"
     client = EvernoteClient(token=evernote_token, sandbox=False)
@@ -183,7 +207,7 @@ def main():
             print "Retry your request in %d seconds" % e.rateLimitDuration
             time.sleep(e.rateLimitDuration+1)
             note_store = client.get_note_store()
-    
+
     # look for notebook "Bookmarks". If there is none, create it
     notebooks = note_store.listNotebooks()
     bookmark_notebook_guid = None
@@ -193,7 +217,7 @@ def main():
     if bookmark_notebook_guid == None:
         print "Creating Evernote Notebook…"
         new_notebook = Types.Notebook()
-        new_notebook.name = "Bookmarks" 
+        new_notebook.name = "Bookmarks"
         bookmark_notebook_guid = note_store.createNotebook(new_notebook).guid
 
     # retrieve all ids and URIs in the Evernote notebook
@@ -207,7 +231,7 @@ def main():
     keep_looking = True
     all_evernote_bookmarks = list()
     while keep_looking:
-        found_notes = note_store.findNotesMetadata(filter, note_offset, 250, spec) 
+        found_notes = note_store.findNotesMetadata(filter, note_offset, 250, spec)
         # oh FFS Evernote, can you make your API even less user-friendly?
         all_evernote_bookmarks += found_notes.notes
         if found_notes.totalNotes == len(all_evernote_bookmarks):
@@ -238,7 +262,7 @@ def main():
             all_pinboard_uris.append(post["href"])
             all_pinboard_posts_map[post["href"]] = post
     all_pinboard_uris.reverse()
-    
+
 
     # now we compare and prep the sync
     missing_from_evernote = list()
@@ -249,7 +273,7 @@ def main():
     for pinboard_uri in all_pinboard_uris:
         if pinboard_uri not in all_evernote_uris:
             missing_from_evernote.append(pinboard_uri)
-    
+
     if len(missing_from_pinboard):
         print "Processing %d bookmarks missing from Pinboard:" % len(missing_from_pinboard)
         post_counter = 1
@@ -257,7 +281,7 @@ def main():
         for evernote_uri in missing_from_pinboard:
             note = all_evernote_bookmarks_map[evernote_uri]
             print post_counter, "/", post_counter_total, ": ", evernote_uri
-        
+
             # remember? p is our pinboard API object
             p.add(url=evernote_uri, description=note.title, date = datetime.fromtimestamp(note.created/1000))
             time.sleep(1)
@@ -265,13 +289,13 @@ def main():
         print
 
     if len(missing_from_evernote):
-        print "Processing %d bookmarks missing from Evernote…" % len(missing_from_evernote)    
+        print "Processing %d bookmarks missing from Evernote…" % len(missing_from_evernote)
         post_counter = 1
         post_counter_total = len(missing_from_evernote)
         for pinboard_uri in missing_from_evernote:
             post = all_pinboard_posts_map[pinboard_uri]
             print post_counter, "/", post_counter_total, ": ", post['href']
-        
+
             note_filter = NoteStore.NoteFilter(words='sourceURL:"'+post["href"].encode("utf-8")+'"')
             try:
                 existing_notes = note_store.findNotes(note_filter, 0, 1)
@@ -288,7 +312,7 @@ def main():
                 # if this bombs again, let it crash. for now.
             if len(existing_notes.notes) > 0:
                     print "Skipping post:  already in Evernote"
-                    pass        
+                    pass
             else:
                 try:
                     created_note = save2evernote(post, note_store, bookmark_notebook_guid, lynx_exe=lynx_exe, phantom_exe=phantom_exe, readability_token=readability_token)
@@ -298,8 +322,7 @@ def main():
                     pass
             post_counter += 1
         print
-    
+
 
 if __name__ == "__main__":
     sys.exit(main())
-    
